@@ -3,6 +3,7 @@ from functools import reduce
 import random
 import socket
 import sys
+from struct import *
 
 class Card:
     class SuitTypes(Enum):
@@ -50,8 +51,13 @@ class Deck:
             defaultCards = args[0]
             if(isinstance(defaultCards ,str)):
                 self.cards = self.extractCardFromStrings(defaultCards)
+            elif(isinstance(defaultCards, list)):
+                for i in defaultCards:
+                    if(i != None):
+                        self.cards[i] = Card(i)
+                self.count = len(defaultCards)
             else:
-                self.cards = defaultCards
+                raise(ValueError("Unsupported argument in deck __init__"))
         else:
             for i in range(0,52):
                 self.cards[i] = Card(i)
@@ -102,8 +108,6 @@ class Deck:
         self.count = 0
         return (p1Deck,p2Deck)
 
-def cardListToString(list):
-    return reduce(lambda x,y : str(x).zfill(2) + str(y).zfill(2), list)
 
 def main():
     args = sys.argv
@@ -128,41 +132,40 @@ def main():
     print("Player joined")
     
     deck = Deck()
-    p1Msg = c1.recv(2)
-    p2Msg = c2.recv(2)
-    p1Score = 0
-    p2Score = 0
-    if(p1Msg != b'0' or p2Msg != b'0'):
+    p1Msg = unpack("2B", c1.recv(2)) # wait for players want game command
+    p2Msg = unpack("2B", c2.recv(2))
+    if(p1Msg[0] != 0 or p2Msg[0] != 0):
         s.close()
 
+    p1Score = 0
+    p2Score = 0
     (p1Deck, p2Deck) = deck.giveCards()
-    c1.sendall(b'1' + (cardListToString(p1Deck).encode()))
-    c2.sendall(b'1' + (cardListToString(p2Deck).encode()))
+    c1.sendall(pack('27B',1, *p1Deck))
+    c2.sendall(pack('27B',1, *p1Deck))
     while(deck.count != 52):
-        p1Msg = c1.recv(4).decode('utf-8') # wait for card from player 1
-        p2Msg = c2.recv(4).decode('utf-8') # wait for card from player 2  
+        p1Msg = unpack("2B", c1.recv(2)) # wait for players cards
+        p2Msg = unpack("2B", c2.recv(2)) 
         print("p1 message", p1Msg)
         print("p2 message", p2Msg)
-        if(p1Msg[0] != "2" or p2Msg[0] != "2"): # the only allowed command from  client at this stage is player card
+        if(p1Msg[0] != 2 or p2Msg[0] != 2): # the only allowed command from  client at this stage is player card
             print("Client sent command other than 2.")
             s.close()                                       # if this is not the case then close socket probably buggy client
             break
-        p1Card = Card(int(p1Msg[1:])) #parse command from the cards
-        p2Card = Card(int(p2Msg[1:]))
-        deck.addCard(p1Card)        
-        deck.addCard(p2Card)
+        p1Card = Card(p1Msg[1]) #parse cards
+        p2Card = Card(p2Msg[1])
+        deck.count += 2
         # see who won
         if(p1Card == p2Card): # its a tie
-            c1.sendall(b'31')
-            c2.sendall(b'31')
+            c1.sendall(pack("2B", 3, 1))
+            c2.sendall(pack("2B", 3, 1))
         elif(p1Card < p2Card): # player 1 wins
             p1Score += 1
-            c1.sendall(b'30')
-            c2.sendall(b'32')
+            c1.sendall(pack("2B", 3, 0))
+            c2.sendall(pack("2B", 3, 2))
         else:  #player 2 wins
             p2Score += 1
-            c1.sendall(b'32')
-            c2.sendall(b'30')
+            c1.sendall(pack("2B", 3, 2))
+            c2.sendall(pack("2B", 3, 0))
     print("Disconnecting....")
     s.close()
 
