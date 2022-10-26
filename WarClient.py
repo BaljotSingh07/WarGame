@@ -35,6 +35,8 @@ def main():
         if(deck.count != 26):
             raise(ValueError("Server should have send 26 cards but only got " + str(deck.count)))
         #game repeats until the client has 0 cards
+        thisPlayerScore = 0
+        otherPlayerScore = 0
         while(deck.count != 0):
             card = generateRadomCard(deck)
             #send card to server
@@ -42,16 +44,21 @@ def main():
             s.sendall(pack("2B", 2, card.cardNum))
             #get the server result
             servermsg = unpack("2B", s.recv(2))
-            print("server msg :" + str(servermsg))
             if(servermsg == ''):
                 print("Server closed.")
                 break
             if(servermsg[1] == 0): # you won
+                thisPlayerScore += 1
                 print("You won")
             elif(servermsg[1] == 1): # its a tie
                 print("Its a tie")
             else: # you lost
-                print("You lost")            
+                otherPlayerScore += 1
+                print("You lost")
+        if(thisPlayerScore > otherPlayerScore):
+            print(f"You won the game with {str(thisPlayerScore)} - {str(otherPlayerScore)}")
+        else:
+            print(f"You lost the game with {str(otherPlayerScore)} - {str(thisPlayerScore)}")
         print("Disconneting....")
 
 

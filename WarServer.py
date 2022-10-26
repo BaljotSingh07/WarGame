@@ -137,11 +137,9 @@ def main():
     if(p1Msg[0] != 0 or p2Msg[0] != 0):
         s.close()
 
-    p1Score = 0
-    p2Score = 0
     (p1Deck, p2Deck) = deck.giveCards()
     c1.sendall(pack('27B',1, *p1Deck))
-    c2.sendall(pack('27B',1, *p1Deck))
+    c2.sendall(pack('27B',1, *p2Deck))
     while(deck.count != 52):
         p1Msg = unpack("2B", c1.recv(2)) # wait for players cards
         p2Msg = unpack("2B", c2.recv(2)) 
@@ -151,19 +149,22 @@ def main():
             print("Client sent command other than 2.")
             s.close()                                       # if this is not the case then close socket probably buggy client
             break
-        p1Card = Card(p1Msg[1]) #parse cards
-        p2Card = Card(p2Msg[1])
+        try:
+            p1Card = Card(p1Msg[1]) #parse cards
+            p2Card = Card(p2Msg[1])
+        except ValueError:
+            print("Buggy client, sent cards out of bound.")
+            s.close()
+            break
         deck.count += 2
         # see who won
         if(p1Card == p2Card): # its a tie
             c1.sendall(pack("2B", 3, 1))
             c2.sendall(pack("2B", 3, 1))
         elif(p1Card < p2Card): # player 1 wins
-            p1Score += 1
             c1.sendall(pack("2B", 3, 0))
             c2.sendall(pack("2B", 3, 2))
         else:  #player 2 wins
-            p2Score += 1
             c1.sendall(pack("2B", 3, 2))
             c2.sendall(pack("2B", 3, 0))
     print("Disconnecting....")
